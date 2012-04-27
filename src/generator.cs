@@ -564,6 +564,24 @@ public class AppearanceAttribute : Attribute {
 }
 
 //
+// This attribute is used on constructor parameters to tell which property the given
+// value will end up in. This is needed to make sure we properly initialize backing fields
+// and trigger the NewRefCount machinery. For example:
+//
+// interface UIButton {
+//	IntPtr Constructor ([BackingProperty ("ImgLabel") UIImage imgLabel);
+//	UIImage ImgLabel { get; set; } 
+//}
+//
+[AttributeUsage (AttributeTargets.Parameter, AllowMultiple=false)]
+public class BackingPropertyAttribute : Attribute {
+	public BackingPropertyAttribute (string name) {
+		Name = name;
+	}
+	public String Name { get; set; }
+}
+
+//
 // Used to encapsulate flags about types in either the parameter or the return value
 // For now, it only supports the [PlainString] attribute on strings.
 //
@@ -2263,6 +2281,56 @@ public class Generator {
 			indent--;
 			print ("}");
 		}
+
+		if (mi.Name == "Constructor") {
+			print (@"//Handling backing fields");
+			bool needsMarkDirty = false;
+			foreach (var pi in mi.GetParameters ()) {
+				BackingPropertyAttribute propAttr = null;
+				if (pi.IsDefined (typeof (BackingPropertyAttribute), false))
+					propAttr = (BackingPropertyAttribute)pi.GetCustomAttributes (typeof (BackingPropertyAttribute), false) [0];
+
+				if (propAttr == null)
+					continue;
+
+				var prop = type.GetProperty (propAttr.Name);
+				/*
+				If the property is not found it means that this constructor initializes a property that belongs to
+				a parent object. We try to look it up.
+				*/
+				if (prop == null) {
+					var t = GeneratedType.Lookup (type);
+					while (prop == null && t != null && t.Parent != null) {
+						t = GeneratedType.Lookup (t.Parent);
+						prop = t.Type.GetProperty (propAttr.Name);
+					}
+					if (prop == null) {
+						Console.WriteLine ("Could not find property {0} on type {1} or any of its parents", propAttr.Name, type);
+						Environment.Exit (1);
+					}
+				}
+				if (!DoesPropertyNeedBackingField (prop)) {
+					continue;
+				}
+
+				var backing_field_name = string.Format ("__mt_{0}_var", propAttr.Name);
+				string wrap;
+				var export = GetExportAttribute (prop, out wrap);
+
+				if (DoesPropertyNeedDirtyCheck (prop, export)) {
+#if !MONOMAC
+					print ("if (!IsNewRefcountEnabled ())");
+#endif
+					print ("\t{0} = {1};", backing_field_name, pi.Name);
+				} else {
+					needsMarkDirty = true;
+					print ("{0} = {1};", backing_field_name, pi.Name);
+				}
+			}
+			if (needsMarkDirty)
+				print ("MarkDirty ();");
+		}
+
 		indent--;
 	}
 
@@ -2364,7 +2432,7 @@ public class Generator {
 
 			if (is_thread_static)
 				print ("[ThreadStatic]");
-			print ("{1}object {0};", var_name, is_static ? "static " : "");
+			print ("internal {1}object {0};", var_name, is_static ? "static " : "");
 
 			if (!is_static){
 				instance_fields_to_clear_on_dispose.Add (var_name);
