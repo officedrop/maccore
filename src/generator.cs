@@ -2380,7 +2380,7 @@ public class Generator {
 	}
 	
 	bool DoesPropertyNeedDirtyCheck (PropertyInfo pi, ExportAttribute ea) {
-		bool needs_ref = ea.ArgumentSemantic == ArgumentSemantic.Copy || ea.ArgumentSemantic == ArgumentSemantic.Retain;
+		bool needs_ref = ea.ArgumentSemantic == ArgumentSemantic.Copy || ea.ArgumentSemantic == ArgumentSemantic.Retain || ea.ArgumentSemantic == ArgumentSemantic.None;
 		return DoesPropertyNeedBackingField (pi) && needs_ref;		
 	}
 
