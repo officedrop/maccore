@@ -224,6 +224,7 @@ public class PostGetAttribute : Attribute {
 	}
 
 	public string MethodName { get; set; }
+	public bool DisableForNewRefCount { get; set; }
 }
 
 public class FieldAttribute : Attribute {
@@ -2254,7 +2255,13 @@ public class Generator {
 			PostGetAttribute [] attr = (PostGetAttribute []) mi.GetCustomAttributes (typeof (PostGetAttribute), true);
 			for (int i = 0; i < attr.Length; i++) {
 				print ("#pragma warning disable 168");
-				print ("var postget{0} = {1};", i, attr [i].MethodName);
+				if (attr [i].DisableForNewRefCount) {
+					print ("if (!IsNewRefcountEnabled ()) {");
+					print ("\tvar postget{0} = {1};", i, attr [i].MethodName);
+					print ("}");
+				} else {
+					print ("var postget{0} = {1};", i, attr [i].MethodName);
+				}
 				print ("#pragma warning restore 168");
 			}
 		}
