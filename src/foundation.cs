@@ -2401,7 +2401,7 @@ namespace MonoMac.Foundation
 
 		[Export("URLByResolvingBookmarkData:options:relativeToURL:bookmarkDataIsStale:error:")]
 		[Static]
-		NSUrl FromBookmarkData (NSData data, NSUrlBookmarkResolutionOptions options, [NullAllowed] NSUrl relativeToUrl, out bool isStale, out NSError error);
+		NSUrl FromBookmarkData (NSData data, NSUrlBookmarkResolutionOptions options, [NullAllowed] NSUrl relativeToUrl, bool isStale, out NSError error);
 
 		[Export("writeBookmarkData:toURL:options:error:")]
 		[Static]
