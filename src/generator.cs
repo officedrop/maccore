@@ -900,7 +900,8 @@ public class Generator {
 	string [] UINamespaces = new string [] {
 		"MonoMac.AppKit"
 	};
-	static bool ThreadProtection = false;
+	string thread_check_call = "global::MonoMac.AppKit.NSApplication.EnsureUIThread ();";
+
 #else
 	public Type MessagingType = typeof (MonoTouch.ObjCRuntime.Messaging);
 	public Type SampleBufferType = typeof (MonoTouch.CoreMedia.CMSampleBuffer);
@@ -919,7 +920,7 @@ public class Generator {
 		"MonoTouch.MapKit",
 		"MonoTouch.MessageUI",
 	};
-	static bool ThreadProtection = true;
+	string thread_check_call = "global::MonoTouch.UIKit.UIApplication.EnsureUIThread ();";
 #endif
 
 	//
@@ -2038,6 +2039,7 @@ public class Generator {
 		"System.Diagnostics",
 		"System.ComponentModel",
 #if MONOMAC
+		"MonoMac",
 		"MonoMac.CoreFoundation",
 		"MonoMac.Foundation",
 		"MonoMac.ObjCRuntime",
@@ -2337,7 +2339,7 @@ public class Generator {
 	{
 		CurrentMethod = String.Format ("{0}.{1}", type.Name, mi.Name);
 		
-		bool needs_thread_check = ThreadProtection && type_needs_thread_checks && threadCheck == ThreadCheck.On;
+		bool needs_thread_check = type_needs_thread_checks && threadCheck == ThreadCheck.On;
 		string selector = SelectorField (sel);
 		var args = new StringBuilder ();
 		var convs = new StringBuilder ();
@@ -2347,7 +2349,7 @@ public class Generator {
 		indent++;
 
 		if (needs_thread_check)
-			print ("global::MonoTouch.UIKit.UIApplication.EnsureUIThread ();");
+			print (thread_check_call);
 		
 		Inject (mi, typeof (PrologueSnippetAttribute));
 
@@ -3203,6 +3205,7 @@ public class Generator {
 					if (BindThirdPartyLibrary)
 						sw.WriteLine ("\t\t\t{0}", init_binding_type);
 					sw.WriteLine ("\t\t}");
+					sw.WriteLine ();
 					GeneratedCode (sw, 2);
 					sw.WriteLine ("\t\t[EditorBrowsable (EditorBrowsableState.Advanced)]");
 					sw.WriteLine ("\t\tpublic {0} (IntPtr handle) : base (handle)", TypeName);
@@ -3210,6 +3213,7 @@ public class Generator {
 					if (BindThirdPartyLibrary)
 						sw.WriteLine ("\t\t\t{0}", init_binding_type);
 					sw.WriteLine ("\t\t}");
+					sw.WriteLine ();
 				}
 			}
 			
@@ -3219,7 +3223,7 @@ public class Generator {
 
 #if RETAIN_AUDITING
 				if (mi.Name.StartsWith ("Set"))
-					foreach (ParameterInfo pi in mi.GetParameters ()) {
+					foreach (ParameterInfo pi in mi.GetParameters ())
 						if (IsWrappedType (pi.ParameterType) || pi.ParameterType.IsArray) {
 							Console.WriteLine ("AUDIT: {0}", mi);
 						}
@@ -3948,14 +3952,10 @@ public class Generator {
 
 	string GetDelegateName (MethodInfo mi)
 	{
-		
 		var a = GetAttribute (mi, typeof (DelegateNameAttribute));
 		if (a != null)
 			return ((DelegateNameAttribute) a).Name;
 
-		a = GetAttribute (mi, typeof (DelegateNameAttribute));
-		if (a != null)
-			return ((DelegateNameAttribute) a).Name;
 		a = GetAttribute (mi, typeof (EventArgsAttribute));
 		if (a == null)
 			throw new BindingException (1006, true, "The delegate method {0}.{1} is missing the [DelegateName] attribute (or EventArgs)", mi.DeclaringType.FullName, mi.Name);
