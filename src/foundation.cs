@@ -4407,6 +4407,10 @@ namespace MonoMac.Foundation
 
 		[Export ("pathForSoundResource:")]
 		string PathForSoundResource (string resource);
+
+		[Export("appStoreReceiptURL")]
+		NSUrl AppStoreReceiptURL { get; }
+		
 #else
 		// http://developer.apple.com/library/ios/#documentation/uikit/reference/NSBundle_UIKitAdditions/Introduction/Introduction.html
 		[Export ("loadNibNamed:owner:options:")]
